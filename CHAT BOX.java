@@ -1,4 +1,4 @@
-import java.net.http.*;
+import java.net.http.*; 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 
@@ -34,4 +34,5 @@ public class MiniChat {
       System.out.println("Bot: " + ask(q));
 }
 }
+
 }
