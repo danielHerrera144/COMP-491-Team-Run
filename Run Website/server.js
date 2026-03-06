@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import 'dotenv/config'; 
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
@@ -221,3 +221,4 @@ app.get("/today-water", authenticateToken, async (req, res) => {
 app.listen(4000, () =>
   console.log("✅ FitQuest backend with auth running at http://localhost:4000")
 );
+
