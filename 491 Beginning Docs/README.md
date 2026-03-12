@@ -1,4 +1,4 @@
-## Documentation
-  - [Ethical Issues](491%20Beginning%20Docs/ethical-issues.md)
-  - [Legal Issues](491%20Beginning%20Docs/legal-issues.md)
-  - [Security Issues](491%20Beginning%20Docs/security-issues.md) 
+## Ethical, Legal, and Security Documentation
+- [Ethical Issues](./ethical-issues.md)
+- [Legal Issues](./legal-issues.md)
+- [Security Issues](./security-issues.md)
