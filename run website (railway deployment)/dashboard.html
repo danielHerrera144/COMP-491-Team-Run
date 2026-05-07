@@ -9,9 +9,55 @@
     .progress-bar { @apply h-2 bg-white/10 rounded-full overflow-hidden; }
     .progress-fill { @apply h-full bg-gradient-to-r from-blue-500 to-purple-500; }
     .badge { @apply px-2 py-1 rounded text-xs font-semibold; }
+        .battle-page {
+  background:
+    linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.65)),
+    url('/assets/colliseum.png') center / cover no-repeat fixed;
+  color: white;
+}
+
+.battle-page main {
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.battle-card {
+  background: rgba(17, 24, 39, 0.95);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 1rem;
+  padding: 1rem;
+  color: white;
+}
+
+body.dashboard-page {
+  background:
+    linear-gradient(rgba(0,0,0,0.70), rgba(0,0,0,0.70)),
+    url('/assets/dashboard.png') center / cover no-repeat fixed !important;
+  color: white;
+}
+
+body.dashboard-page main {
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+body.dashboard-page .stat-card {
+  background: rgba(17, 24, 39, 0.95) !important;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 1rem;
+  padding: 1rem;
+  color: white;
+}
   </style>
+
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
+<body class="dashboard-page text-white min-h-screen">
   <!-- Navigation Header -->
   <header class="bg-gray-800 border-b border-white/10">
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -87,6 +133,37 @@
       </div>
     </section>
 
+    <!-- AI Coach Section -->
+<section class="mb-8">
+  <h3 class="text-lg font-semibold mb-4">🤖 AI Coach</h3>
+  <div class="stat-card">
+    <div id="coachMessages" class="h-48 overflow-y-auto mb-3 space-y-2 bg-black/20 rounded-lg p-3">
+      <div class="text-center text-gray-400 text-sm">💬 Ask Coach AI anything about fitness or your character!</div>
+    </div>
+    <div class="flex gap-2">
+      <input type="text" id="coachInput" placeholder="Ask Coach AI something..." 
+             class="flex-1 bg-black/30 rounded-lg px-3 py-2 border border-white/10 focus:outline-none focus:border-purple-500">
+      <button onclick="askCoach()" class="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg font-semibold transition">
+        Ask
+      </button>
+    </div>
+    <div class="text-xs text-gray-400 mt-2">
+      💡 Try: "What workouts should I do?" or "How can I level up faster?"
+    </div>
+  </div>
+</section>
+
+<!-- AI Workout Recommendations -->
+<section class="mb-8">
+  <h3 class="text-lg font-semibold mb-4">🎯 AI Workout Recommendations</h3>
+  <div id="recommendationsContainer" class="space-y-4">
+    <div class="stat-card text-center">
+      <div class="text-2xl mb-2">🤖</div>
+      <div>Loading personalized recommendations...</div>
+    </div>
+  </div>
+</section>
+    
     <!-- Recent Activity -->
 <section class="mb-8">
   <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
@@ -145,29 +222,59 @@
     </section>
   </main>
 
-  <script>
+ <script>
+  // Auto-detect API URL (SAME AS LOGIN/SIGNUP)
+  const isLocalhost = window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1';
+  const API_BASE = isLocalhost ? 'http://localhost:4000' : window.location.origin;
+  
+  console.log('Dashboard loading...');
+  console.log('API Base:', API_BASE);
+
   // Check if user is logged in
   const token = localStorage.getItem("token");
+  const heroName = localStorage.getItem("heroName");
   
   if (!token) {
+    console.error('No token found, redirecting to login');
     alert("Please log in first!");
     window.location.href = "login.html";
+  }
+
+  // Display hero name immediately from localStorage
+  if (heroName) {
+    document.getElementById("userHeroName").textContent = heroName;
+    document.getElementById("heroName").textContent = heroName;
   }
 
   // Load user data
   async function loadUserData() {
     try {
-      const res = await fetch("http://localhost:4000/profile", {
+      console.log('Loading profile from:', `${API_BASE}/profile`);
+      
+      const res = await fetch(`${API_BASE}/profile`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
       });
 
+      console.log('Profile response status:', res.status);
+      
+      if (res.status === 401) {
+        // Token expired or invalid
+        console.error('Token invalid or expired');
+        localStorage.removeItem("token");
+        alert("Session expired. Please log in again.");
+        window.location.href = "login.html";
+        return;
+      }
+
       if (!res.ok) {
-        throw new Error("Failed to load profile");
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
 
       const user = await res.json();
+      console.log('User data loaded:', user);
       
       // Update UI with user data
       document.getElementById("userHeroName").textContent = user.heroName;
@@ -191,15 +298,29 @@
 
     } catch (error) {
       console.error("Error loading user data:", error);
-      alert("Error loading profile. Please log in again.");
-      logout();
+      
+      // Fallback to localStorage data if API fails
+      const fallbackHeroName = localStorage.getItem("heroName");
+      const fallbackStats = JSON.parse(localStorage.getItem("userStats") || '{}');
+      
+      if (fallbackHeroName) {
+        document.getElementById("heroName").textContent = fallbackHeroName + " (Offline)";
+      }
+      
+      if (fallbackStats.strength) {
+        document.getElementById("strengthStat").textContent = fallbackStats.strength;
+        document.getElementById("staminaStat").textContent = fallbackStats.stamina;
+        document.getElementById("agilityStat").textContent = fallbackStats.agility;
+      }
+      
+      alert("Connected but some data may be delayed. The app is still functional.");
     }
   }
 
   // Load recent activities
   async function loadRecentActivities() {
     try {
-      const res = await fetch("http://localhost:4000/recent-activities", {
+      const res = await fetch(`${API_BASE}/recent-activities`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -261,7 +382,7 @@
   // Load today's hydration
   async function loadTodayHydration() {
     try {
-      const res = await fetch("http://localhost:4000/today-water", {
+      const res = await fetch(`${API_BASE}/today-water`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -295,7 +416,7 @@
   // Load level progress
   async function loadLevelProgress() {
     try {
-      const res = await fetch("http://localhost:4000/level-progress", {
+      const res = await fetch(`${API_BASE}/level-progress`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -329,10 +450,10 @@
     }
   }
 
-  // Log water intake (UPDATED - makes actual API call)
+  // Log water intake
   async function logWater(cups) {
     try {
-      const res = await fetch("http://localhost:4000/log-water", {
+      const res = await fetch(`${API_BASE}/log-water`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -380,47 +501,49 @@
   // Game functions
   async function loadQuests() {
     try {
-      const res = await fetch("http://localhost:4000/quests", {
+      const res = await fetch(`${API_BASE}/quests`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const quests = await res.json();
       
-      const progressRes = await fetch("http://localhost:4000/quests/progress", {
+      const progressRes = await fetch(`${API_BASE}/quests/progress`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const questsWithProgress = await progressRes.json();
       
       const container = document.getElementById("questsContainer");
-      container.innerHTML = questsWithProgress.map(quest => `
-        <div class="stat-card">
-          <div class="flex justify-between items-start mb-2">
-            <div>
-              <h4 class="font-semibold">${quest.title}</h4>
-              <p class="text-sm opacity-70">${quest.description}</p>
+      if (container) {
+        container.innerHTML = questsWithProgress.map(quest => `
+          <div class="stat-card">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <h4 class="font-semibold">${quest.title}</h4>
+                <p class="text-sm opacity-70">${quest.description}</p>
+              </div>
+              <span class="badge ${quest.completed ? 'bg-green-600' : 'bg-yellow-600'}">
+                ${quest.completed ? 'Ready!' : 'In Progress'}
+              </span>
             </div>
-            <span class="badge ${quest.completed ? 'bg-green-600' : 'bg-yellow-600'}">
-              ${quest.completed ? 'Ready!' : 'In Progress'}
-            </span>
-          </div>
-          <div class="mb-2">
-            <div class="flex justify-between text-xs mb-1">
-              <span>Progress: ${quest.completed}/${quest.requirement}</span>
-              <span>${Math.round(quest.progress * 100)}%</span>
+            <div class="mb-2">
+              <div class="flex justify-between text-xs mb-1">
+                <span>Progress: ${quest.completed}/${quest.requirement}</span>
+                <span>${Math.round(quest.progress * 100)}%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="h-full bg-blue-500" style="width: ${quest.progress * 100}%"></div>
+              </div>
             </div>
-            <div class="progress-bar">
-              <div class="h-full bg-blue-500" style="width: ${quest.progress * 100}%"></div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm">Reward: ${quest.reward.xp} XP, ${quest.reward.gold} Gold</span>
+              <button onclick="claimQuest('${quest._id}')" 
+                      class="bg-green-600 hover:bg-green-500 px-3 py-1 rounded text-sm ${!quest.completed ? 'opacity-50 cursor-not-allowed' : ''}"
+                      ${!quest.completed ? 'disabled' : ''}>
+                Claim
+              </button>
             </div>
           </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm">Reward: ${quest.reward.xp} XP, ${quest.reward.gold} Gold</span>
-            <button onclick="claimQuest('${quest._id}')" 
-                    class="bg-green-600 hover:bg-green-500 px-3 py-1 rounded text-sm ${!quest.completed ? 'opacity-50 cursor-not-allowed' : ''}"
-                    ${!quest.completed ? 'disabled' : ''}>
-              Claim
-            </button>
-          </div>
-        </div>
-      `).join('');
+        `).join('');
+      }
     } catch (error) {
       console.error("Error loading quests:", error);
     }
@@ -428,7 +551,7 @@
 
   async function claimQuest(questId) {
     try {
-      const res = await fetch(`http://localhost:4000/quests/claim/${questId}`, {
+      const res = await fetch(`${API_BASE}/quests/claim/${questId}`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -449,7 +572,7 @@
     const price = prices[itemType];
     
     try {
-      const userRes = await fetch("http://localhost:4000/profile", {
+      const userRes = await fetch(`${API_BASE}/profile`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const user = await userRes.json();
@@ -468,17 +591,23 @@
   // Logout function
   function logout() {
     localStorage.removeItem("token");
+    localStorage.removeItem("heroName");
+    localStorage.removeItem("userStats");
+    localStorage.removeItem("userLevel");
+    localStorage.removeItem("userGold");
+    localStorage.removeItem("userEmail");
     window.location.href = "login.html";
   }
 
   // Load all data when page loads
   document.addEventListener("DOMContentLoaded", () => {
-    loadUserData();
-    loadRecentActivities();
-    loadTodayHydration();
-    loadLevelProgress();
-    setTimeout(loadQuests, 1000);
-  });
+  loadUserData();
+  loadRecentActivities();
+  loadTodayHydration();
+  loadLevelProgress();
+  setTimeout(loadQuests, 1000);
+  setTimeout(loadRecommendations, 1500);  // ← ADD THIS LINE
+});
 </script>
 
   <!-- Quests Section -->
@@ -521,102 +650,263 @@
 </section>
 
 <script>
-  // Game functions
-async function loadQuests() {
-  try {
-    const res = await fetch("http://localhost:4000/quests", {
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-    const quests = await res.json();
-    
-    const progressRes = await fetch("http://localhost:4000/quests/progress", {
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-    const questsWithProgress = await progressRes.json();
-    
-    const container = document.getElementById("questsContainer");
-    container.innerHTML = questsWithProgress.map(quest => `
-      <div class="stat-card">
-        <div class="flex justify-between items-start mb-2">
-          <div>
-            <h4 class="font-semibold">${quest.title}</h4>
-            <p class="text-sm opacity-70">${quest.description}</p>
+  // Game functions - Use the same API_BASE from above
+  async function loadQuests() {
+    try {
+      const res = await fetch(`${API_BASE}/quests`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const quests = await res.json();
+      
+      const progressRes = await fetch(`${API_BASE}/quests/progress`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const questsWithProgress = await progressRes.json();
+      
+      const container = document.getElementById("questsContainer");
+      if (container) {
+        container.innerHTML = questsWithProgress.map(quest => `
+          <div class="stat-card">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <h4 class="font-semibold">${quest.title}</h4>
+                <p class="text-sm opacity-70">${quest.description}</p>
+              </div>
+              <span class="badge ${quest.completed ? 'bg-green-600' : 'bg-yellow-600'}">
+                ${quest.completed ? 'Ready!' : 'In Progress'}
+              </span>
+            </div>
+            <div class="mb-2">
+              <div class="flex justify-between text-xs mb-1">
+                <span>Progress: ${quest.completed}/${quest.requirement}</span>
+                <span>${Math.round(quest.progress * 100)}%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="h-full bg-blue-500" style="width: ${quest.progress * 100}%"></div>
+              </div>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm">Reward: ${quest.reward.xp} XP, ${quest.reward.gold} Gold</span>
+              <button onclick="claimQuest('${quest._id}')" 
+                      class="bg-green-600 hover:bg-green-500 px-3 py-1 rounded text-sm ${!quest.completed ? 'opacity-50 cursor-not-allowed' : ''}"
+                      ${!quest.completed ? 'disabled' : ''}>
+                Claim
+              </button>
+            </div>
           </div>
-          <span class="badge ${quest.completed ? 'bg-green-600' : 'bg-yellow-600'}">
-            ${quest.completed ? 'Ready!' : 'In Progress'}
-          </span>
-        </div>
-        <div class="mb-2">
-          <div class="flex justify-between text-xs mb-1">
-            <span>Progress: ${quest.completed}/${quest.requirement}</span>
-            <span>${Math.round(quest.progress * 100)}%</span>
-          </div>
-          <div class="progress-bar">
-            <div class="h-full bg-blue-500" style="width: ${quest.progress * 100}%"></div>
-          </div>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="text-sm">Reward: ${quest.reward.xp} XP, ${quest.reward.gold} Gold</span>
-          <button onclick="claimQuest('${quest._id}')" 
-                  class="bg-green-600 hover:bg-green-500 px-3 py-1 rounded text-sm ${!quest.completed ? 'opacity-50 cursor-not-allowed' : ''}"
-                  ${!quest.completed ? 'disabled' : ''}>
-            Claim
-          </button>
-        </div>
-      </div>
-    `).join('');
-  } catch (error) {
-    console.error("Error loading quests:", error);
-  }
-}
-
-
-async function claimQuest(questId) {
-  try {
-    const res = await fetch(`http://localhost:4000/quests/claim/${questId}`, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-    const result = await res.json();
-    
-    if (result.success) {
-      alert(result.message);
-      loadQuests();
-      loadUserData(); // Refresh stats
+        `).join('');
+      }
+    } catch (error) {
+      console.error("Error loading quests:", error);
     }
-  } catch (error) {
-    console.error("Error claiming quest:", error);
   }
-}
 
-async function buyItem(itemType) {
-  const prices = { strength: 50, health: 30, stamina: 50 };
-  const price = prices[itemType];
+  // Load game data when page loads - use setTimeout to avoid duplicate loading
+  document.addEventListener("DOMContentLoaded", () => {
+    // Already loaded by main script, just ensure quests load
+    setTimeout(loadQuests, 1000);
+  });
+
+// ====== AI COACH FUNCTIONS ======
+async function askCoach() {
+  const input = document.getElementById('coachInput');
+  const message = input.value.trim();
+  
+  if (!message) return;
+  
+  // Add user message to chat
+  addCoachMessage('You', message, 'user');
+  input.value = '';
+  
+  // Show typing indicator
+  const typingId = addTypingIndicator();
   
   try {
-    const userRes = await fetch("http://localhost:4000/profile", {
-      headers: { "Authorization": `Bearer ${token}` }
+    const res = await fetch(`${API_BASE}/api/ai-coach`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ message })
     });
-    const user = await userRes.json();
     
-    if (user.gold < price) {
-      alert("Not enough gold!");
-      return;
+    const data = await res.json();
+    removeTypingIndicator(typingId);
+    
+    if (data.success) {
+      addCoachMessage('Coach AI', data.reply, 'coach');
+    } else {
+      addCoachMessage('Coach AI', 'Sorry, I had trouble understanding that. Try asking about workouts or your stats!', 'coach');
     }
-    
-    // Update user stats (you'd need to create this endpoint)
-    alert(`Purchased ${itemType} potion! This would update your stats.`);
   } catch (error) {
-    console.error("Error buying item:", error);
+    console.error('AI Coach error:', error);
+    removeTypingIndicator(typingId);
+    addCoachMessage('Coach AI', 'Connection issue. I\'m still here to help! What would you like to know? 💪', 'coach');
   }
 }
 
-// Load game data when page loads
-document.addEventListener("DOMContentLoaded", () => {
-  loadUserData();
-  setTimeout(loadQuests, 1000); // Load quests after user data
+function addCoachMessage(sender, text, type) {
+  const container = document.getElementById('coachMessages');
+  const div = document.createElement('div');
+  div.className = type === 'user' ? 'text-right' : 'text-left';
+  div.innerHTML = `
+    <div class="inline-block max-w-[80%] ${type === 'user' ? 'bg-indigo-600' : 'bg-gray-700'} rounded-lg px-3 py-2 mb-1">
+      <span class="text-xs opacity-70">${sender}</span>
+      <div class="text-sm">${text}</div>
+    </div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function addTypingIndicator() {
+  const container = document.getElementById('coachMessages');
+  const id = 'typing-' + Date.now();
+  const div = document.createElement('div');
+  div.id = id;
+  div.className = 'text-left';
+  div.innerHTML = `
+    <div class="inline-block bg-gray-700 rounded-lg px-3 py-2">
+      <div class="flex gap-1">
+        <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
+        <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 150ms"></span>
+        <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return id;
+}
+
+function removeTypingIndicator(id) {
+  const element = document.getElementById(id);
+  if (element) element.remove();
+}
+
+// Allow Enter key to submit
+document.getElementById('coachInput')?.addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    askCoach();
+  }
 });
+
+// ====== AI WORKOUT RECOMMENDATIONS ======
+async function loadRecommendations() {
+  try {
+    const res = await fetch(`${API_BASE}/api/recommendations`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    const data = await res.json();
+    
+    if (!data.success) {
+      throw new Error('Failed to load recommendations');
+    }
+    
+    const container = document.getElementById('recommendationsContainer');
+    
+    // Show motivational message first
+    let html = `
+      <div class="stat-card bg-gradient-to-r from-purple-900/50 to-indigo-900/50 border-purple-500/30">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="text-2xl">🤖</div>
+          <div class="font-semibold text-purple-300">AI Analysis</div>
+        </div>
+        <p class="text-sm">${data.motivationalMessage}</p>
+        <div class="flex gap-3 mt-2 text-xs text-gray-400">
+          <span>⚔️ Strength: ${data.statsAnalysis.strength}</span>
+          <span>💨 Stamina: ${data.statsAnalysis.stamina}</span>
+          <span>🏃 Agility: ${data.statsAnalysis.agility}</span>
+          <span>📊 Streak: ${data.statsAnalysis.workoutStreak} workouts (14d)</span>
+        </div>
+      </div>
+    `;
+    
+    // Add each recommendation
+    data.recommendations.forEach(rec => {
+      const borderColor = rec.focus === 'strength' ? 'border-l-red-500' : 
+                          rec.focus === 'stamina' ? 'border-l-blue-500' : 
+                          rec.focus === 'agility' ? 'border-l-green-500' : 'border-l-purple-500';
+      
+      html += `
+        <div class="stat-card border-l-4 ${borderColor}">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <h4 class="font-bold text-lg">${rec.name}</h4>
+              <p class="text-sm opacity-70">${rec.reason}</p>
+            </div>
+            <span class="text-yellow-400 text-sm font-semibold">+${rec.estimatedXp} XP</span>
+          </div>
+          <div class="space-y-2 mb-3">
+            ${rec.exercises.map(ex => `
+              <div class="flex items-center gap-2 text-sm">
+                <span class="text-xl">${ex.icon}</span>
+                <span class="font-medium">${ex.name}:</span>
+                <span>${ex.reps} ${ex.unit} × ${ex.sets} sets</span>
+                <span class="text-xs opacity-50">${ex.description}</span>
+              </div>
+            `).join('')}
+          </div>
+          <button onclick="logRecommendedWorkout(${JSON.stringify(rec.exercises[0])})" 
+                  class="w-full bg-green-600 hover:bg-green-500 py-2 rounded font-semibold transition">
+            💪 Log ${rec.exercises[0].name}
+          </button>
+        </div>
+      `;
+    });
+    
+    container.innerHTML = html;
+    
+  } catch (error) {
+    console.error('Error loading recommendations:', error);
+    document.getElementById('recommendationsContainer').innerHTML = `
+      <div class="stat-card text-center">
+        <div class="text-2xl mb-2">⚠️</div>
+        <div>Unable to load recommendations. Check your connection.</div>
+        <button onclick="loadRecommendations()" class="mt-2 bg-indigo-600 px-3 py-1 rounded text-sm">Retry</button>
+      </div>
+    `;
+  }
+}
+
+async function logRecommendedWorkout(exercise) {
+  if (!exercise) return;
+  
+  try {
+    const res = await fetch(`${API_BASE}/log-workout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        name: exercise.name,
+        reps: exercise.reps,
+        weight: 0,
+        sets: exercise.sets
+      })
+    });
+    
+    const data = await res.json();
+    
+    if (data.success) {
+      alert(`✅ ${exercise.name} logged! +${data.xpEarned} XP earned!`);
+      loadUserData(); // Refresh stats
+      loadRecommendations(); // Refresh recommendations
+    } else {
+      alert('Failed to log workout. Please try again.');
+    }
+  } catch (error) {
+    console.error('Error logging workout:', error);
+    alert('Error logging workout. Please try again.');
+  }
+}
+
+  
 </script>
 
 </body>
 </html>
+

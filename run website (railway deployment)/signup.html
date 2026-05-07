@@ -4,8 +4,17 @@
   <meta charset="UTF-8">
   <title>FitQuest – Sign Up</title>
   <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-image: url('assets/TeamRunGym.png');
+            background-size: cover;      /* Scales image to fill the background */
+            background-repeat: no-repeat; /* Prevents the image from tiling */
+            background-position: center;  /* Centers the image */
+            background-attachment: fixed; /* Keeps image static while scrolling */
+        }
+  </style>
 </head>
-<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen";>
   <div class="bg-gray-800 p-8 rounded-2xl shadow-md w-80">
     <h2 class="text-2xl font-bold mb-4 text-center">Sign Up</h2>
 
@@ -21,29 +30,55 @@
     </p>
   </div>
 
+
+
+  
   <script>
+    // Auto-detect API URL
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const API_BASE = isLocalhost ? 'http://localhost:4000' : window.location.origin;
+    
+    console.log('API Base URL:', API_BASE);
+
     async function registerUser() {
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
       const heroName = document.getElementById("hero").value;
 
-      const res = await fetch("http://localhost:4000/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password,
-          heroName,
-          stats: { strength: 5, stamina: 5, agility: 5 }
-        }),
-      });
+      // Validate inputs
+      if (!email || !password || !heroName) {
+        alert("❌ Please fill in all fields");
+        return;
+      }
 
-      const data = await res.json();
-      if (data.success) {
-        alert("✅ Account created successfully!");
-        window.location.href = "login.html"; // redirect if you make a login page later
-      } else {
-        alert("❌ Failed to create account");
+      console.log('Attempting registration to:', `${API_BASE}/register`);
+      console.log('With data:', { email, heroName });
+
+      try {
+        const res = await fetch(`${API_BASE}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            password,
+            heroName,
+            // Remove stats from here - server adds them
+          }),
+        });
+
+        const data = await res.json();
+        console.log('Response:', data);
+        
+        if (data.success) {
+          alert("✅ Account created successfully!");
+          // Redirect to login
+          window.location.href = "login.html";
+        } else {
+          alert(`❌ Failed: ${data.message || "Unknown error"}`);
+        }
+      } catch (error) {
+        console.error('Registration error:', error);
+        alert("❌ Network error. Check console for details.");
       }
     }
   </script>
